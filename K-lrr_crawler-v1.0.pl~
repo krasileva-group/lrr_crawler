@@ -1,0 +1,132 @@
+#!/bin/perl
+ 
+use strict;
+use Getopt::Long;
+use Data::Dumper;
+use Bio::SeqIO;
+
+my ($file_pep, $file_domains, $out_file, $motif);
+my $before='';
+my $after='';
+
+GetOptions(
+       'p|inseq_pep:s'        => \$file_pep,
+       'n|inseq_domains:s'        => \$file_domains,
+       'o|outfile:s'        => \$out_file,
+       'm|motif:s'        => \$motif,
+       'a|after:s'   => \$after,
+       'b|before:s'   => \$before,
+
+    );
+
+my $usage="                                                                                                                                                                                                                                                                     
+Usage: perl script.pl <options>                                                                                                                               Required options:                                                                                                                                                                                                                                                               
+       '-p|--inseq_pep'  input fasta protein file
+       '-n|--inseq_domains'   input domain annotation
+       '-o|--outfile'    prefix for all output files
+       '-m|--motif'      degenerate motif to search for
+       '-b|--before'     consider motives only N' to this domain
+       '-a|--after'      consider motives only C' to this domain                        
+";
+
+die $usage unless ( (defined $file_pep) and (defined $motif) );
+
+# Load all fasta sequences
+
+my %sequences;
+
+my $inseq_pep    = Bio::SeqIO->new(
+									-file => $file_pep,
+									-format => 'Fasta',
+									);
+
+while (my $seq = $inseq_pep->next_seq){
+
+	my ($header)=split(" ", $seq->id);
+	$sequences{$header}{'pep'}=$seq->seq();
+
+}
+
+# Load domain annotations
+
+my %domains = load_domain_annotation($file_domains);
+
+#search for motif in each sequence and record aa composition
+
+my %motives_present;
+
+foreach my $seq_id (keys %sequences){
+
+    if ($sequences{$seq_id}{'pep'}=~ m/$motif/g ){
+
+	$motives_present{$seq_id}{$motif}{'Positions'} = match_all_positions($motif, $sequences{$seq_id}{'pep'});
+	$motives_present{$seq_id}{$motif}{'Count'} = count_matches($motif, $sequences{$seq_id}{'pep'}); 
+
+	print $motives_present{$seq_id}{$motif}{'Positions'}, "\n";
+    
+    }
+
+}
+
+
+
+sub load_domain_annotation {
+    
+    my $FILE1 = $_;
+    open $FILE1 or die "cannot open domain annotation file: $FILE1";
+    
+    my %domain_db;
+
+    while (my $line = <$FILE1> ){
+    
+	chomp $line; 
+
+	my ($seqid, $domainstring)=split("\t", $line);
+	    
+	my @domains = split('~', $domainstring);
+
+	foreach (@domains){
+
+	    my $domain=$_;
+
+	    my ($domainid, $attributes)=split(/\(/, $domain);
+	    $attributes=~ s/\)//; #remove right hand bracket
+	    $attributes=~ s/\s//g;
+	    my ($start_string, $stop_string, $evalue_string)=split(",", $attributes);
+	    my ($foo, $evalue)=split("=", $evalue_string);
+
+#	    if ($evalue < $evalue_cutoff){
+	    $domain_db{$seqid}{$domain}++;
+	    my $n = $domain_db{$seqid}{$domain};
+	    $domain_db{$seqid}{$domain}{$n}{'start'} = $start_string;
+	    $domain_db{$seqid}{$domain}{$n}{'stop'} = $stop_string;
+	    $domain_db{$seqid}{$domain}{$n}{'evalue'} = $evalue;
+#	}
+	}
+    
+    }
+
+    close $FILE1;
+
+    return %domain_db;
+
+}
+
+
+sub match_all_positions {
+    my ($regex, $string) = @_;
+    my @ret;
+    while ($string =~ /$regex/g) {
+        push @ret, [ $-[0], $+[0] ];
+    }
+    return @ret;
+}
+
+sub count_matches{
+
+ my ($regex, $string) = @_;
+ my @count = $string =~ /$regex/g;
+ 
+ return scalar @count; 
+
+}

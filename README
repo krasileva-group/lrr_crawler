@@ -1,0 +1,13 @@
+This script under development allows to extract all specified LRRs motifs of interest.
+
+Usage: perl script.pl <options>                                                                                                                               Required options:                                                                                                                                                                                                                                                               
+       '-p|--inseq_pep'  input fasta protein file
+       '-d|--inseq_domains'   input domain annotation
+       '-o|--outfile'    prefix for all output files
+       '-m|--motif'      degenerate motif to search for in regex format
+       '-b|--before'     consider motives only N' to this domain
+       '-a|--after'      consider motives only C' to this domain
+
+Example usage: 
+
+perl K-lrr_crawler-v1.0.pl -p Athaliana.pep.fasta -d Athaliana.pfamdomains.parsed.verbose.tsv -outfile Athaliana.lrrcrawler.results -m 'L..L.L..' -a NB-ARC  
